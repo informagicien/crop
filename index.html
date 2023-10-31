@@ -1,0 +1,180 @@
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html;charset=utf-8" />
+</head>
+<body>
+<style type='text/css'>
+body {margin:0;}
+#canvamic {border:1px solid black;width:500px;height:500px;float:left;}
+#limitcrop {width :200px;height:200px;position:absolute;border:1px solid red;z-index:10;}
+#resizetool {position:absolute;bottom:3px;right:3px;width:30px;height:30px;z-index:100;}
+#resizepicto {position:absolute;bottom:3px;right:3px;width:20px;height:20px;background-color:silver;z-index:0;}
+#monitor {position:absolute;bottom:3px;right:3px;}
+</style>
+
+<div style="clear:both"></div>
+<div id="canvamic" style="-moz-user-select: none;-khtml-user-select: none;-webkit-user-select: none;-o-user-select: none;">
+<div id="limitcrop" style="width:200px;height:200px;top:0px;left:0px;">
+<div id="resizepicto"></div>
+<div id="resizetool"></div>
+</div>
+</div>
+<div id="cropresult">
+<canvas id="canvaresult" width="300" height="300"></canvas>
+</div>
+<div style="clear:both"></div>
+
+<div>
+<form action="#" accept="image/*"  method="post" name="formload" id="formload" enctype="multipart/form-data">
+<input type="file" name="image" id="image" />
+<input type="hidden" name="cropout" id="cropout" value="" />
+<div onclick="sendcrop();">Send</div>
+</form>
+</div>
+
+<script type="text/javascript">
+//image info
+var foto = new Image();
+var uridata = document.URL;
+var qsa = uridata.split('?');
+foto.src = qsa[1];
+//end image info
+
+var fileInput = document.getElementById('image');
+fileInput.addEventListener('change', function()
+{
+    var reader = new FileReader();
+    reader.addEventListener('load', function()
+    {
+    	foto.src = reader.result;
+    	canvamic.style.background = "url('"+foto.src+"') no-repeat left top";
+    	canvamic.style.backgroundSize = "contain";
+    	initsrc();
+    }
+    ,false);
+   reader.readAsDataURL(fileInput.files[0]);
+},
+false);
+
+var canvamic= document.getElementById('canvamic');
+canvamic.style.background = "url('"+foto.src+"') no-repeat left top";
+canvamic.style.backgroundSize = "contain";
+var clickmouse = false;
+var coord = new Array();
+var applisize = {w:500, h:500};
+var datacrop = {t:1, l:1, w:1, h:1};
+var echelle = {ratio:1, rapport:1};
+var toolcropsize = 33;
+var crop = document.getElementById('limitcrop');
+var toolcrop = document.getElementById('resizetool');
+
+crop.addEventListener("mousemove", moving);
+crop.addEventListener("mousedown", posorigin);
+crop.onmouseover = function() { crop.style.cursor='move';}
+crop.onmouseup = function() { clickmouse = false; }
+crop.onmouseout = function() { clickmouse = false; }
+crop.ondblclick = function() { window.open(document.getElementById('canvaresult').toDataURL('image/jpeg'), 'Crop avatar', config='height=200, width=200, toolbar=no, menubar=no, scrollbars=no, resizable=no, location=no, directories=no, status=no');}
+
+toolcrop.addEventListener("mousemove", croping);
+toolcrop.onmouseover = function() { toolcrop.style.cursor='se-resize';}
+toolcrop.onmouseup = function() { clickmouse = false; inittool(); }
+toolcrop.onmouseout = function() { clickmouse = false; inittool(); }
+
+foto.onload = function() { initsrc(); };
+
+var canvaresult = document.getElementById('canvaresult');
+var showresult = canvaresult.getContext('2d');
+
+function moving(elem)
+{
+	elem.stopPropagation = true;
+	//elem.cancelBubble = true;
+	var cropzone = elem.target || elem.srcElement;
+	var a = elem.pageX+document.body.scrollLeft;
+	var b = elem.pageY+document.body.scrollTop;
+	if(clickmouse)
+	{
+		cropzone.style.top= (b - coord[1])+'px';
+		cropzone.style.left = (a - coord[0])+'px';
+		if(parseInt(cropzone.style.top) < 0)
+		{
+			cropzone.style.top = '0px';
+		}
+		if(parseInt(cropzone.style.left) < 0)
+		{
+			cropzone.style.left = '0px';
+		}
+		if(parseInt(cropzone.style.top) > (applisize.h - parseInt(cropzone.style.height)))
+		{
+			cropzone.style.top = (applisize.h - parseInt(cropzone.style.height))+'px';
+		}
+		if(parseInt(cropzone.style.left) > (applisize.w - parseInt(cropzone.style.width)))
+		{
+			cropzone.style.left = (applisize.w - parseInt(cropzone.style.width))+'px';
+		}
+		datacrop.l = (a - coord[0]) * echelle.rapport;
+		datacrop.t = (b - coord[1]) * echelle.rapport;
+		datacrop.w = parseInt(cropzone.style.width) * echelle.rapport;
+		datacrop.h = parseInt(cropzone.style.height) * echelle.rapport;
+		if(datacrop.l > 0 && datacrop.t > 0 && datacrop.w > 0 && datacrop.h > 0)showresult.drawImage(foto, datacrop.l, datacrop.t, datacrop.w, datacrop.h, 0, 0, canvaresult.width, canvaresult.height);
+	}
+}
+
+function posorigin(elem)
+{
+	elem.stopPropagation = true;
+	//elem.cancelBubble = true;
+	clickmouse = true;
+	var origin = elem.target || elem.srcElement;
+	var a = elem.pageX+document.body.scrollLeft;
+	var b = elem.pageY+document.body.scrollTop;
+	coord[0] = (a - parseInt(origin.offsetLeft));
+	coord[1] = (b - parseInt(origin.offsetTop));
+}
+
+function croping(elem)
+{	
+	elem.stopPropagation = true;
+	//elem.cancelBubble = true;
+	var crophand = elem.target || elem.srcElement;
+	var zonecrop = document.getElementById('limitcrop');
+	zonecrop.style.width = (crophand.offsetLeft + toolcropsize)+'px';
+	zonecrop.style.height = (crophand.offsetLeft + toolcropsize)+'px'; // 1:1
+	//zonecrop.style.height = (((crophand.offsetLeft + toolcropsize)/4)*3)+'px'; //4:3 
+	//zonecrop.style.height = (crophand.offsetTop + toolcropsize)+'px'; // open
+}
+
+function inittool()
+{
+	var tool= document.getElementById('resizetool');
+	tool.style.top = (parseInt(crop.style.height)-toolcropsize)+'px';
+	tool.style.left = (parseInt(crop.style.width)-toolcropsize)+'px';
+}
+
+function initsrc()
+{  
+	applisize = {w:500, h:500};
+	var datacrop = {t:1, l:1, w:1, h:1};
+	echelle.ratio = foto.width/foto.height;
+	echelle.rapport = echelle.ratio > 1 ? foto.width/applisize.w : foto.height/applisize.h;
+	if(echelle.ratio > 1)
+	{
+		applisize.h = foto.height * (applisize.h / foto.width);
+	}
+	else
+	{
+		applisize.w = foto.width * (applisize.w / foto.height);
+	}
+	canvamic.style.width = applisize.w+'px';
+	canvamic.style.height = applisize.h+'px';
+}
+
+function sendcrop()
+{
+	document.getElementById('cropout').value = document.getElementById('canvaresult').toDataURL('image/jpeg');
+	var formcrop = document.getElementById('formload');
+	formcrop.submit();
+}
+</script>
+</body>
+</html>
